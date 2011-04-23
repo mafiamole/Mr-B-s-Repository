@@ -1,0 +1,126 @@
+<?php
+namespace OCrud;
+
+require_once("sqlAbstraction/standard.php");
+
+define ("SINGLE",0);
+
+define ("MULTI",1);
+
+define ("PAGINATE",2);
+
+class Crud {
+	static private $instance;
+	public $db;
+	private $tables;
+	private function __construct($dbPDO,$username=null,$password=null) {
+			
+		if ($dbPDO instanceof \PDO) {
+			$this->db = $dbPDO;
+		}
+		else if (is_string($dbPDO)) {
+			// assumes input is dsn.
+			if ($username == null or $password == null) {
+				throw new \Exception("Username and password can not be null!");
+			}
+
+			$this->db = new PDO($dbPDO,$username,$password);
+		}
+		else {
+			throw new \Exception("First argument is invalid");
+		}
+ 
+	}
+
+	static public function instance($dbPDO=null,$username=null,$password=null) {
+		if (self::isInitialised()) {
+			return Crud::$instance;
+		}
+		else {
+			if ($dbPDO == null) {
+				throw new \Exception("You are required to provide a DSN string or a PDO instance for the first argument.");
+			}
+			else {
+				self::$instance = new self($dbPDO,$username,$password);
+				return Crud::$instance;
+			}
+		}
+	}
+
+	static private function isInitialised() {
+		$result = (Crud::$instance instanceof self ? true : false);
+		return $result;
+	}
+
+	public function setTable($name,$rows) {
+		
+		$this->tables[] = array (
+			'name' => $rows
+		);
+
+	}
+
+	public function create() {
+	
+	}
+
+	public function read($mode,$tables,$columns,$limiters = null,$orderBy = null) {
+	
+		switch ($mode) {
+		case 0:
+			// Single row fetch for search.
+			$query = new \SQLStandard();
+			$query->select($columns)->from($tables);
+			if ($limiters !== null)
+				$query->where($limiters);
+			if ($orderBy !== null)
+				$query->orderBy($orderBy);
+			
+			$sql = $query->toString();
+			
+			$st = $this->db->prepare($sql);
+			
+			$results =  $st->execute();
+			if (!$results) {
+				echo "Error: ";
+				var_dump($st->errorInfo());
+				echo "<br />";
+			}
+			else {
+			return $results;
+			}
+
+			break;
+		case 1:
+			// multiple row fetch for search.
+		case 2:
+
+			// Paginated data, optional search.
+		}
+	}
+
+	public function update($mode) {
+
+	}
+
+	public function delete() {
+
+	}
+
+	protected function paginated($table,$columns,$page,$numResults,$limiters,$orderBy) {
+		$offset = ($page - 1) * $numResults;
+			
+	}
+
+	protected function fetchAll() {
+
+
+	}
+
+	protected function fetchOne() {
+
+	}
+}
+
+
+?>

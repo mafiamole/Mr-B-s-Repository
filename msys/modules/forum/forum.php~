@@ -1,7 +1,7 @@
 <?php
 require_once '././framework/module.php';
 
-class Forum implements module {
+class forumLoader implements module {
   /**
    * @var Url
    */

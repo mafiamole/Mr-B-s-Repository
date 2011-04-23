@@ -39,9 +39,8 @@ if (file_exists($moduleData->dir)) {
   $moduleConf = $moduleResolve->instanceConfig($moduleData->m2Id);
  
   require $moduleData->dir;
-
+  var_dump($moduleData);
   $moduleName = ucwords($moduleData->name);
-  
   $classInst = new $moduleName($moduleData->m2Id,$moduleConf);
   
   $classInst->loadContents($url); 

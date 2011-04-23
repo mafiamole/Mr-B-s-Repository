@@ -1,0 +1,150 @@
+<?php
+require_once 'PasswordHash.php';
+require_once 'db.php';
+
+class users {
+  /**
+   * @var string
+   */
+  protected $sessionName;
+  /**
+   * @var int
+   */
+  protected $uId;
+  /**
+   * @var db
+   */
+  protected $db;
+  
+  function __construct($sessionName) {
+    
+    $this->db = db::i();
+    
+  }
+  /**
+   * Checks for the existance of a user
+   */
+  function userCheck($username) {
+    
+    $sql = "SELECT uId FROM users WHERE username == ?";
+    
+    $data = array($username);
+    
+    $count = count($this->db->fetchAll($sql,$data));
+    
+    
+    return ($count > 0) ? true : false;  
+    
+  }
+  
+  function register($username,$password,$password2,$email) {
+    
+    if ($password != $password2) {
+      
+      throw new Exception("Passwords do not match");
+      
+    }
+    
+    if($this->userCheck()) {
+      
+      throw new Exception("This username is in use");
+      
+    }
+    
+    // throw in a check for the email
+    
+    $hashTool = new PasswordHash(8,false);
+    
+    $hashedPW = $hashTool->HashPassword($password);
+    
+    $sql = "INSERT INTO users (username,password,email) (:uname,:pw,:em)";
+    
+    $data = array(":uname"=>$username,":pw"=>$hashedPW,":em"=>$email);
+    
+    return $this->db->performQuery($sql,$data);
+        
+  }
+  
+  function login($username,$password) {
+    
+    
+    
+    $hashTool = new PasswordHash(8,false);
+    
+    $sql = "SELECT uId,password FROM users WHERE username == ?"; 
+    
+    $data = array($username);   
+    
+    $row = $this->db->fetchOne($sql,$data,PDO::FETCH_OBJ);
+    
+    if (!$row) {
+      
+      throw new Exception("Unknown user of the name $username.");
+      
+    }
+    
+    $hash = $row->password;
+    
+    $pwCk =  $hashTool->CheckPassword($password,$hash);
+    
+    if ($pwChk) {
+      
+      //form da session blud
+      
+      session_name($this->sessionName);
+      
+      session_start ();
+      
+      $_SESSION['id'] = $row->uId;
+      
+      $_SESSION['agent'] = md5($_SERVER['HTTP_USER_AGENT']);      
+      
+      return true;
+      
+    }
+    
+    else {
+      
+      return false;
+      
+    }
+    
+  }
+  
+  function logout() {
+    
+    session_name ($this->sessionName);
+    
+    session_start ();
+    
+    $_SESSION = array(); //remove contents of SESSION array with a blank array
+    
+    setcookie (session_name(), '', time()-300, '/', '',0); //Remove the cookie
+    
+    session_destroy(); //destroy session it self    
+    
+  }
+  
+  function loggedIn() {
+    
+    if (isset($_SESSION['agent'])) {
+      
+      if ( $_SESSION['agent'] == md5($_SERVER['HTTP_USER_AGENT'])) {
+        
+        return true;
+        
+      }
+      
+      else {
+        
+        return false;
+        
+      }
+      
+    }
+    
+  }
+  
+}
+
+?>

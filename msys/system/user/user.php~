@@ -49,16 +49,7 @@ class user implements module {
     
     
   }
-  public static function views() {
-    
-    
-  }
   
-  public static function loadView($name) {
-    
-  }
- 
-    
 }
 
 $page = new user($url,$moduleResolve);

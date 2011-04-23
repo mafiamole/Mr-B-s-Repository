@@ -2,7 +2,7 @@
 
 interface module {
   
-  public function __construct($moduleId,$moduleConf);
+  public function __construct($moduleId);
   public function loadContents($url);
   // Static methods for interfacing with other modules and system mechanisms.
   public static function externalJoin($m2Id);

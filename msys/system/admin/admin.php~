@@ -73,6 +73,8 @@ class Admin implements module {
     
     $this->url = $url;
     
+    $this->modules = $modules;
+
     if ($url->count() < 2) {
       $this->adminMenu();
       }

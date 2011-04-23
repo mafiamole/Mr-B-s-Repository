@@ -34,7 +34,9 @@ class forumModule {
     $this->Db = Db::i();
 
     $this->m2Id = $m2Id;
-        
+    
+    $this->mData = new moduleData();
+    
     $this->fTable = $conf['forums_table'];
     
     $this->tTable = $conf['threads_table'];

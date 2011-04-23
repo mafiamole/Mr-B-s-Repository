@@ -1,0 +1,22 @@
+<?php
+/**
+ * Documentation, License etc.
+ *
+ * @package msys
+ */
+require 'framework/PasswordHash.php';
+
+$bob = new PasswordHash(8,false);
+
+$password = "chemicalz10";
+
+$hash1 =  $bob->HashPassword($password);
+$hash2 =  $bob->HashPassword($password);
+
+echo $hash1 . "<br />" .$hash2;
+echo "<br />";
+echo "HASH1: ";
+var_dump($bob->CheckPassword($password,$hash1));
+echo "<br />";
+echo "HASH2: ";
+var_dump($bob->CheckPassword($password,$hash2));

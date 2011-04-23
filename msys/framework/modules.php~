@@ -62,7 +62,7 @@ class Modules {
       $data = array($url);
       
       $output = $this->Db->fetchOne("
-              SELECT `moduleInstances`.`m2Id` , `moduleInstances`.`mId` , `moduleInstances`.`title` , `moduleInstances`.`url` , `modules`.`dir`,  `modules`.`name`
+              SELECT `moduleInstances`.`m2Id` , `moduleInstances`.`mId` , `moduleInstances`.`title` , `moduleInstances`.`url` , `modules`.`dir`,  `modules`.`na,e`
               FROM `moduleInstances`
               INNER JOIN `modules` ON `moduleInstances`.`mId` = `modules`.`mId`
               WHERE `moduleInstances`.`url` =?",

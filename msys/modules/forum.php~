@@ -1,0 +1,30 @@
+<?php
+class forumLoader {
+  /**
+   * @var Url
+   */
+  protected $Url;
+  /**
+   * Begins the execution of the forums app
+   * @param Url $url
+   */
+  public function __construct() {
+    
+    $this->Url = new Url();
+    
+    $open = $this->Url->getItem(1);
+    
+    $this->loadType($open);
+    
+  }
+  
+  protected function loadType($type) {
+    
+    
+    
+    
+  }
+  
+}
+$bob = new forumLoader;
+?>

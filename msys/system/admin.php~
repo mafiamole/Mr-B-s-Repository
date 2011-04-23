@@ -1,0 +1,71 @@
+<?php
+
+class Admin {
+  
+  protected $page;
+  /**
+   * 
+   * @var Url
+   */
+  protected $url;
+  /**
+   * @var Modules
+   */
+  protected $modules;
+  
+  public function __construct($url,$modules) {
+    $this->url = $url;
+    $this->modules = $modules;
+    if ($url->count() < 2) {
+      //fail
+      }
+    else {
+        $page = $url->getItem(1); //obtain admin page
+        $this->loadPage($page);
+      }
+      
+  }
+  
+  public function loadPage($name) {
+    
+    switch($name) {
+      
+      case "modules":
+         // list modules installed, manage instances throughout the system.
+          $this->moduleList();
+        break;
+      
+      
+    }
+      
+  }
+  
+  protected function moduleList() {
+    
+    require './config/sysModules.php'; // system modules have a set instance.
+    
+    //
+    
+    $dbModules = $this->modules->listModules();
+
+    if ($dbModules) {
+      
+      $moduleList = array_merge($modules,$dbModules);
+      
+      var_dump($moduleList);
+      
+    }
+    else {
+      
+      $moduleList = $modules;
+      
+    }
+  }
+  
+}
+
+$page = new Admin($url,$moduleResolve);
+
+
+
+?>

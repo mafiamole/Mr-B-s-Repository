@@ -1,0 +1,23 @@
+K 25
+svn:wc:ra_dav:version-url
+V 60
+/svnroot/ufpdfsms/!svn/ver/23/trunk/framework/sqlAbstraction
+END
+SQLAbstraction.php
+K 25
+svn:wc:ra_dav:version-url
+V 79
+/svnroot/ufpdfsms/!svn/ver/24/trunk/framework/sqlAbstraction/SQLAbstraction.php
+END
+standard.php
+K 25
+svn:wc:ra_dav:version-url
+V 73
+/svnroot/ufpdfsms/!svn/ver/24/trunk/framework/sqlAbstraction/standard.php
+END
+mysql.php
+K 25
+svn:wc:ra_dav:version-url
+V 70
+/svnroot/ufpdfsms/!svn/ver/24/trunk/framework/sqlAbstraction/mysql.php
+END

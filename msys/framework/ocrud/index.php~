@@ -1,0 +1,13 @@
+<?php
+require_once("ocrud.php");
+try {
+	$pdo = new PDO("mysql:host=localhost;dbname=ufpdf_sms","ufpdf_sms","wizard");
+	$test = OCrud\crud::instance($pdo);
+
+	var_dump($test->read(SINGLE,"users","id"));
+}
+catch (Exception $e) {
+	echo $e->getMessage();
+}
+
+?>
