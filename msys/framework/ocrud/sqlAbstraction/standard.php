@@ -1,0 +1,1065 @@
+<?php
+
+/**
+ * @package standard
+ */
+require_once 'SQLAbstraction.php';
+
+/**
+ * This implements as much to my knowledge the 2008 revision to the SQL spec.
+ * @package SQLStandard
+ */
+class SQLStandard implements SqlAbstraction {
+
+    /**
+     * The type of query the person is forming like
+     * @var string
+     */
+    protected $queryType;
+    /**
+     * Determins if we have started a query
+     * @var bool
+     */
+    protected $queryTypeSet;
+    /**
+     * Holds value for limit clause
+     * @var array
+     */
+    protected $limits;
+    /**
+     * Table Prefix to append to the beginning of table names.
+     * @var string
+     */
+    protected $tblPrefix;
+    /**
+     * The columns to select.
+     * @var array
+     */
+    protected $columnSelect;
+    /**
+     * The tables to use in the query
+     * @var array|string
+     */
+    protected $tables;
+    /**
+     * An array of items to go into a where clause
+     * @var array
+     */
+    protected $wheres;
+    /**
+     * What columns to order results by
+     * @var array
+     */
+    protected $orderBy;
+    /**
+     * If the ordering accends or decends through the results
+     * @var string
+     */
+    protected $orderDirection;
+    /**
+     * An array of columns ready for an insert query
+     * @var array
+     */
+    protected $insertColumns;
+    /**
+     * An multi dimensional array of rows to insert.
+     * @var array
+     */
+    protected $insertValues;
+    /**
+     * SQL string used to determin the join type
+     * @var string
+     */
+    protected $joinType;
+    /**
+     * Holds the table to perform a join in a query.
+     * @var string
+     */
+    protected $joinTable;
+    /**
+     * Two columns to match in a join operation, and the comparator.
+     * @var array
+     */
+    protected $on;
+
+    /**
+     * The constructor sets the table prefix, and inital values
+     *
+     * @param string $tblPrefix A string of a prefix to append to table names.
+     */
+    public function __construct($tblPrefix = "") {
+
+        $this->columnSelect = array();
+
+        $this->tblPrefix = $tblPrefix;
+
+        $this->on = array();
+
+        $this->queryTypeSet = false;
+
+        $this->orderBy = null;
+    }
+
+    /**
+     * Returns the SQL query as a string
+     *
+     * @return string
+     */
+    public function toString() {
+
+        switch ($this->queryType) {
+
+            case "SELECT":
+                return $this->genSelect();
+
+            case "UPDATE":
+                return $this->genUpdate();
+
+            case "INSERT":
+                return $this->genInsert();
+
+            case "DELETE":
+                return $this->genDelete();
+
+                break;
+        }
+    }
+
+    /**
+     * Creates a select query.
+     *
+     * @param string $cols,...$colsn Unlimited number of columns can be entered as seperate parameters
+     * @return SQLStandard
+     */
+    public function select($cols = null) {
+
+        $this->setQueryType("SELECT");
+        
+        if ($cols != null) {
+
+            if (!is_array($cols)) {
+
+                $args = func_get_args();
+
+                }
+
+            else {
+
+                $args = $cols;
+                
+                }
+        }
+        else {
+
+            $args = array();
+
+        }
+
+        $selects = array();
+
+        foreach ($args as $arg) {
+
+            if (is_array($arg)) {
+
+                if (isset($arg['table'])) {
+
+                    $col = $this->tblPrefix . $arg['table'] . "." . $arg['column'];
+                } else {
+
+                    $col = $arg['column'];
+                }
+
+                if (isset($arg['as'])) {
+
+                    $selects[] = $col . " AS " . $arg['as'];
+                } else {
+
+                    $selects[] = $col;
+                }
+            } else {
+
+                $selects[] = $arg;
+            }
+        }
+
+        $this->columnSelect = array_merge($this->columnSelect, $selects);
+
+        return $this;
+    }
+
+    /**
+     * Add as single column to a select query
+     *
+     * @param string $column The name of the column to add.
+     * @param string $table Optional. The table the column is from.
+     * @param string $as Optional. Set an alias for the column
+     * @return Db
+     */
+    public function addColumn($column, $table = null, $as = null) {
+
+        $selects = array();
+
+        if ($this->queryType != "SELECT") {
+
+            throw new Exception("You can not use addColumns in a(n) {$this->queryType} statement");
+        }
+
+
+        if ($table === null) {
+
+            $tbl = "";
+        } else {
+
+            $tbl = $this->tblPrefix . $table;
+        }
+
+        if ($as !== null) {
+
+            $selects[] = "{$tbl}.{$column}";
+        } else {
+
+            $selects[] = "{$tbl}.{$column} AS {$as}";
+        }
+
+
+        $this->columnSelect = array_merge($this->columnSelect, $selects);
+    }
+
+    /**
+     * Adds one or more columns from the same table to a select query
+     *
+     * @param string $table The name of table to get columns from
+     * @param string $column,... One or more columns as seperate parameters
+     */
+    public function tableColumns($table, $column) {
+
+        if ($this->queryType !== "SELECT") {
+
+            throw new Exception("tableColumns can not be used with a(n) {$this->queryType} statment");
+        }
+
+        $args = func_get_args();
+
+        $numArgs = func_num_args();
+
+        $table = $this->tblPrefix . $table;
+
+        $selects = array();
+
+        for ($ctr = 1; $ctr < $numArgs; $ctr++) {
+            $col = $args[$ctr];
+            $selects[] = "{$table}.{$ctr}";
+        }
+    }
+
+    /**
+     * Sets the tables to use in a query.
+     * It also appends the prefix to each table.
+     *
+     * @param string $tables,... Any number of tables can be placed as seperate parameters
+     * @return SQLStandard
+     */
+    public function from($tables) {
+        
+        $types = array('SELECT','DELETE');
+
+        if (in_array($this->queryType,$types)) {
+        
+
+
+            foreach (func_get_args () as $arg) {
+
+                if (is_array($arg)) {
+
+                    $this->tables[] = $this->tblPrefix . $arg[0] . " AS " . $arg[1];
+                } else {
+
+                    $this->tables[] = $this->tblPrefix . $arg;
+                }
+            }
+        } else {
+
+            throw new Exception("FROM can not be used with a {$this->queryType} statment.");
+        }
+
+        return $this;
+    }
+
+    /**
+     * Set a row limiter on a select statement
+     *
+     * @param $limit The number of rows to limit by.
+     * @param $offset An offset to start the limited number of rows selection.
+     * @return SQLStandard
+     */
+    public function limit($limit, $offset = null) {
+
+        if ($this->queryType != "SELECT") {
+
+            throw new Exception("You can not use limit in a(n) {$this->queryType} statement");
+        }
+
+        if ($offset == null) {
+
+            $this->limits = array($limit);
+        } else {
+
+            $this->limits = array($limit, $offset);
+        }
+
+        return $this;
+    }
+
+    /**
+     * Adds an order by Clause
+     *
+     * @param string $direction Either ASC for accending or DESC for decending order.
+     * @param string $column,... one or more columns can be added, a parameter per column.
+     * @return SQLStandard
+     */
+    public function orderBy( $column,$direction = "ASC") {
+
+        if ($this->queryType != "SELECT") {
+
+            throw new Exception("You can not use orderBy in a(n) {$this->queryType} statement");
+        }
+
+        $this->orderBy = $column;
+
+        $this->orderDirection = $direction;
+
+        return $this;
+    }
+
+    /**
+     * Adds a where clause, with an AND operator before it, if applicable.
+     * 
+     * @param string $column The name of the column.
+     * @param mixed $data The value to find in the database.
+     * @param string $comparator The operator to use.
+     * @return SQLStandard
+     */
+    public function where($column, $data, $comparitor = "=") {
+
+        if ($this->queryType == "SELECT" or $this->queryType == "DELETE" or $this->queryType = "UPDATE") {
+
+            $column = $this->genColumn($column);
+
+            $this->wheres[] = array("AND", $column . $comparitor  . $data);
+            
+        } else {
+            throw new Exception("You can not use where in a(n) {$this->queryType} statement");
+        }
+
+        return $this;
+    }
+
+    /**
+     * Adds a where clause, with an OR operator before it, if applicable
+     * 
+     * @param string $column The name of the column.
+     * @param mixed $data The value to find in the database.
+     * @param string $comparator The operator to use.
+     * @return SQLStandard
+     */
+    public function orWhere($column, $data, $comparitor = "=") {
+
+        $types = array('SELECT','DELETE','UPDATE');
+        
+        if (!in_array($this->queryType, $types,true)) {
+
+            throw new Exception("You can not use orWhere in a(n) {$this->queryType} statement");
+            
+        }
+
+        $column = $this->genColumn($column);
+
+        $this->wheres[] = array("OR", $column . $comparitor  . $data );
+
+        return $this;
+    }
+
+    /**
+     * Adds a where clause, that uses the LIKE operator for comparason, with an AND operator before it, if applicable
+     *
+     * @param string $column The name of the column.
+     * @param mixed $data The value to find in the database.
+     * @param string $wildCardPlacement If to place the % on the left, right or both sides of the supplied data.
+     * @return SQLStandard
+     */
+    public function like($column, $data, $wildCardPlacement) {
+
+        $types = array('SELECT','DELETE','UPDATE');
+
+        if (in_array($this->queryType, $types,true)) {
+
+            throw new Exception("You can not use like in a(n) {$this->queryType} statement");
+            
+        }
+
+        switch ($wildCardPlacement) {
+
+            case "left":
+
+                $data = '%' . $data;
+
+            case "right":
+
+                $data = $data . '%';
+
+            case "both";
+
+                $data = '%' . $data . '%';
+        }
+
+        $this->where($column, $data, "LIKE");
+
+        return $this;
+    }
+
+    /**
+     * Adds a where clause, that uses the LIKE operator for comparason, with an OR operator before it, if applicable
+     *
+     * @param string $column The name of the column.
+     * @param mixed $data The value to find in the database.
+     * @param string $wildCardPlacement If to place the % on the left, right or both sides of the supplied data.
+     * @return SQLStandard
+     */
+    public function orLike($column, $data, $wildCardPlacement) {
+
+        $types = array('SELECT','DELETE','UPDATE');
+
+        if (in_array($this->queryType, $types,true)) {
+
+            throw new Exception("You can not use orLike in a(n) {$this->queryType} statement");
+        }
+
+        switch ($wildCardPlacement) {
+
+            case "left":
+
+                $data = '%' . $data;
+
+            case "right":
+
+                $data = $data . '%';
+
+            case "both";
+
+                $data = '%' . $data . '%';
+        }
+
+        $this->or_where($column, $data, "LIKE");
+
+        return $this;
+    }
+
+    /**
+     * Allows for multiple values to be compared for a single column. Places an AND operator after the previous
+     * Item in the WHERE clause if applicable.
+     *
+     * @param string column  The column to place compare the values against.
+     * @param string $val,... One or more values to be passed as seperate parameters after the column.
+     * @return SQLStandard
+     */
+    public function in($column, $val) {
+
+        $types = array('SELECT','DELETE','UPDATE');
+
+        if (in_array($this->queryType, $types,true)) {
+
+            throw new Exception("You can not use in in a(n) {$this->queryType} statement");
+        }
+
+        $column = $this->genColumn($column);
+
+        $data = func_get_args();
+
+        array_shift($datA);  //remove column from data
+
+        $data = implode(",", $data);
+
+        $this->wheres[] = array("AND", $column . " IN (" . $data . ")");
+
+        return $this;
+    }
+
+    /**
+     * Allows for multiple values to be compared for a single column. Places an OR operator after the previous
+     * Item in the WHERE clause if applicable.
+     *
+     * @param string column  The column to place compare the values against.
+     * @param string $val,... One or more values to be passed as seperate parameters after the column.
+     * @return SQLStandard
+     */
+    public function orIn($column, $val) {
+
+        $types = array('SELECT','DELETE','UPDATE');
+
+        if (in_array($this->queryType, $types,true)) {
+
+            throw new Exception("You can not use orIn  in a(n) {$this->queryType} statement");
+        }
+
+        $column = $this->genColumn($column);
+
+        $data = func_get_args();
+
+        array_shift($datA);  //remove column from data
+
+        $data = implode(",", $data);
+
+        $this->wheres[] = array("OR", $column . " IN (" . $data . ")");
+
+        return $this;
+    }
+
+    /**
+     * Return results where a column has values between two provided.
+     *
+     * @param string $column The Column to find the range in.
+     * @param string $val1 The start of the range.
+     * @param string $val2 The end of the range.
+     * @return SQLStandard
+     */
+    public function between($column, $val1, $val2) {
+
+        $types = array('SELECT','DELETE','UPDATE');
+
+        if (in_array($this->queryType, $types,true)) {
+
+            throw new Exception("You can not use between in a(n) {$this->queryType} statement");
+
+            }
+
+        $column = $this->genColumn($column);
+
+        $this->wheres[] = array("AND", "$column BETWEEN " . $val1 . " AND " . $val2);
+
+        return $this;
+    }
+
+    /**
+     * Return results where a column has values that are not between two provided.
+     *
+     * @param string $column The Column to find the range in.
+     * @param string $val1 The start of the range.
+     * @param string $val2 The end of the range.
+     * @return SQLStandard
+     */
+    public function notBetween($column, $val1, $val2) {
+
+        $types = array('SELECT','DELETE','UPDATE');
+
+        if (in_array($this->queryType, $types,true)) {
+
+            throw new Exception("You can not use notbetween in a(n) {$this->queryType} statement");
+
+            }
+
+        $column = $this->genColumn($column);
+
+        $this->wheres[] = array("AND", "$column NOT BETWEEN " . $val1 . " AND " . $val2);
+
+        return $this;
+    }
+
+    /**
+     * Begins an INSERT Query
+     *
+     * @param string $table The table to insert to.
+     * @param string $columns,... One or more columns to be passed as seperate parameters
+     * @return SQLStandard
+     */
+    public function insert($table, $columns = null) {
+
+        $this->setQueryType("INSERT");
+
+        $this->tables = $table;
+        if (!is_array($columns)) {
+            
+            $args = func_get_args();
+
+            array_shift($args);
+
+            $this->insertColumns = $args;
+        }
+        else {
+            $this->insertColumns = $columns;
+
+        }
+
+        return $this;
+    }
+
+    /**
+     * Sets a row of values you wish to insert into the database
+     *
+     * @param string $values,... An array of the values you wish to insert. They need to be in the same order as the columns set by the insert method
+     * @return SQLStandard
+     */
+    public function values($value) {
+
+        $types = array('INSERT');
+
+        if (!in_array($this->queryType, $types,true)) {
+
+            throw new Exception("You can not use values in a(n) {$this->queryType} statement");
+
+        }
+        
+        if (!is_array($value)) {
+
+            $this->insertValues[] = func_get_args();
+
+            }
+            
+        else {
+
+            $this->insertValues[] = $value;
+
+            }
+
+
+        return $this;
+    }
+
+    /**
+     * Begin an UPDATE query
+     *
+     * @param string $table The name of the table the update operations are being performed on.
+     * @return SQLStandard
+     */
+    public function update($table) {
+
+        $this->setQueryType("UPDATE");
+
+        $this->tables = $table;
+
+        return $this;
+    }
+
+    /**
+     * Set the values of the columns to change. Enter the parameters as column 1,value 1,column 2,value 2, ... column n,value n
+     *
+     * @param string $column The name of the column to utilise
+     * @param string $value The value to change on the column before hand.
+     * @return SQLStandard
+     */
+    public function set($column, $value) {
+
+
+        $types = array('UPDATE');
+
+        if (!in_array($this->queryType, $types)) {
+
+            throw new Exception("You can not use set in a(n) {$this->queryType} statement");
+
+            }
+
+        $numArgs = func_num_args();
+
+        $args = func_get_args();
+
+        if ($numArgs % 2 == 1) {
+
+            throw new Exception("Stupid error, even number of arguments requried");
+        }
+
+        for ($i = 0; $i < $numArgs; $i +=2) {
+
+            $col = $args[$i];
+
+            $val = $args[$i + 1];
+
+            $this->updateData[] = $col . "=" . $val . "";
+        }
+
+        return $this;
+    }
+
+    /**
+     * Begin a DELETE query
+     *
+     * @param string $table The name of the table to remove data from
+     */
+    public function delete($table) {
+
+        $this->setQueryType("DELETE");
+
+        $this->tables = $table;
+    }
+
+    /**
+     * Sets the columns to match in a JOIN operation
+     *
+     * @param array $column1 The first column to compare with.
+     * @param array $column2 The second to compare with.
+     * @param string $operator The operator to use, eg =,!= etc.
+     * @return SQLStandard
+     */
+    public function on($column1, $column2, $operator = "=") {
+
+
+        $types = array('SELECT');
+
+        if (in_array($this->queryType, $types,true)) {
+
+
+            throw new Exception("You can not use on in a(n) {$this->queryType} statement");
+
+            }
+
+        // expects columns to be arrays.
+
+        $this->on = array($column1, $column2, $operator);
+        //add to array.
+        return $this;
+    }
+
+    /**
+     * Sets an Inner JOIN
+     *
+     * @param string $table The table name to perform the join on.
+     * @return SQLStandard
+     */
+    public function innerJoin($table) {
+
+        $this->join("INNER JOIN", $table);
+
+        return $this;
+    }
+
+    /**
+     * Sets a Natural JOIN
+     *
+     * @param string $table The table name to perform the join on.
+     * @return SQLStandard
+     */
+    public function naturalJoin($table) {
+        $this->join("NATURAL JOIN", $table);
+        return $this;
+    }
+
+    /**
+     * Sets a cross JOIN
+     *
+     * @param string $table The table name to perform the join on.
+     * @return SQLStandard
+     */
+    public function crossJoin($table) {
+        $this->join("CROSS JOIN", $table);
+        return $this;
+    }
+
+    /**
+     * Sets a left outer join JOIN
+     *
+     * @param string $table The table name to perform the join on.
+     * @return SQLStandard
+     */
+    public function leftOuterJoin($table) {
+        $this->join("LEFT OUTER JOIN", $table);
+        return $this;
+    }
+
+    /**
+     * Sets a right outer join
+     *
+     * @param string $table The table name to perform the join on.
+     * @return SQLStandard
+     */
+    public function rightOuterJoin($table) {
+        $this->join("RIGHT OUTER JOIN", $table);
+        return $this;
+    }
+
+    /**
+     * Sets a full outer join
+     *
+     * @param string $table The table name to perform the join on.
+     * @return SQLStandard
+     */
+    public function fullOuterJoin($table) {
+        $this->join("FULL OUTER JOIN", $table);
+    }
+
+    /**
+     * Sets the JOIN operation, given the type and the table.
+     *
+     * @param string $type The SQL clause for the type of join to perform.
+     * @param string $table The table to form the Join with.
+     */
+    protected function join($type, $table) {
+
+
+        $types = array('SELECT');
+
+        if (in_array($this->queryType, $type,true)) {
+
+            throw new Exception("You can not add a join to a(n) {$this->queryType} statement");
+
+            }
+
+        $this->joinType = $type;
+
+        $this->joinTable = $this->tblPrefix . $table;
+    }
+
+    /**
+     * Generate a SELECT query.
+     *
+     * @return string
+     */
+    private function genSelect() {
+
+        $orderBy = $this->genOrderBy();
+
+        $limit = $this->genLimit();
+
+
+        if (array($this->tables)) {
+
+            $tables = implode(",", $this->tables);
+        }
+
+        if (array($this->columnSelect)) {
+            
+            if (!empty($this->columnSelect)) {
+
+                $columns = implode(",", $this->columnSelect);
+
+            }
+
+            else {
+
+                $columns = "*";
+
+            }
+        }
+
+        $wheres = $this->genWheres();
+
+        $joinStuff = $this->genJoins();
+
+        $join = $joinStuff[0];
+
+        $on = $joinStuff[1];
+
+        $query = "SELECT $columns FROM $tables $join $on $wheres $orderBy $limit";
+
+        return $query;
+    }
+
+    /**
+     * Returns a column with or without a table as a string. Depending if it is entered as an array.
+     * It also appends the table prefix to start of the table name.
+     *
+     * @return string
+     */
+    protected function genColumn($column) {
+
+        if (is_array($column)) {
+
+            $column = $this->tblPrefix . $column[0] . "." . $column[1];
+        }
+
+        return $column;
+    }
+
+    /**
+     * Generates the WHERE clause for a query
+     *
+     * @return string
+     */
+    protected function genWheres() {
+
+        if (!empty($this->wheres)) {
+
+            $numWheres = count($this->wheres);
+
+            $wheres = "WHERE " . $this->wheres[0][1];
+
+            for ($i = 1; $i < $numWheres; $i++) {
+                
+                $wheres .= " " . $this->wheres[$i][0] . " " . $this->wheres[$i][1];
+            }
+        } else {
+
+            $wheres = "";
+        }
+
+        return $wheres;
+    }
+
+    /**
+     * Generate an INSERT query.
+     *
+     * @return string
+     */
+    protected function genInsert() {
+
+        if (is_array($this->insertColumns)) {
+
+            $columns = "(" . implode(",", $this->insertColumns) . ")";
+        } else {
+
+            $columns = "";
+        }
+
+        $rows = array();
+
+        foreach ($this->insertValues as $values) {
+
+            $row = implode(",", $values);
+
+            $rows[] = "({$row})";
+        }
+
+        $values = implode(",", $rows);
+
+        $query = "INSERT INTO " . $this->tables . " " . $columns . " VALUES " . $values;
+
+        return $query;
+    }
+
+    /**
+     * Generate a UPDATE query.
+     *
+     * @return string
+     */
+    protected function genUpdate() {
+
+        $updateVals = implode(",", $this->updateData);
+
+        $where = $this->genWheres();
+
+        $query = "UPDATE " . $this->tables . " SET " . $updateVals . " " . $where;
+
+        return $query;
+    }
+
+    /**
+     * Generate a DELETE query.
+     *
+     * @return string
+     */
+    protected function genDelete() {
+
+        $where = $this->genWheres();
+
+        $query = "DELETE FROM {$this->tables} $where";
+
+        return $query;
+    }
+
+    /**
+     * Generates an Order by clause
+     *
+     * @return string
+     */
+    protected function genOrderBy() {
+
+        if (is_array($this->orderBy)) {
+
+            $orderItems = implode(",", $this->orderBy);
+
+            $orderBy = "ORDER BY " . $orderItems . " " . $this->orderDirection;
+        } else if ($this->orderBy != null) {
+            $orderBy = "ORDER BY " . $this->orderBy . " " . $this->orderDirection;
+        }
+        else {
+
+            $orderBy = "";
+
+        }
+        return $orderBy;
+    }
+
+    /**
+     * Generates a row limit in accordances to the spec.
+     *
+     * @Return string
+     */
+    protected function genLimit() {
+        $limit = "";
+        if (is_array($this->limits)) {
+
+            switch (count($this->limits)) {
+
+                case 1:
+
+                    $lim = $this->limits[0];
+
+                    $limit = "FETCH FIRST $lim ROWS ONLY";
+
+                    break;
+
+                case 2:
+
+                    $lim = $this->limits[0];
+
+                    $offset = $this->limits[1];
+
+                    $limit = "OFFSET $offset ROWS FETCH FIRST $lim ROWS ONLY";
+
+                    break;
+
+                default:
+
+                    //falls silently for now
+                    $limit = "";
+                    break;
+            }
+        }
+
+        return $limit;
+    }
+
+    /**
+     * Generates the SQL for JOINs and the associated ON stuff.
+     *
+     * @return array Contains array(JOIN STRING,ON STRING);
+     */
+    protected function genJoins() {
+
+        if (isset($this->joinTable)) {
+
+            $join = $this->joinType . " " . $this->joinTable;
+
+            if (!empty($this->on)) {
+                $col1 = $this->genColumn($this->on[0]);
+                $col2 = $this->genColumn($this->on[1]);
+
+                $on = "ON {$col1} {$this->on[2]} {$col2}";
+            } else {
+
+                $on = "";
+            }
+        } else {
+
+            $join = "";
+
+            $on = "";
+        }
+        return array($join, $on);
+    }
+
+    public function setQueryType($type) {
+
+        if ($this->queryTypeSet == true) {
+
+            throw new Exception("Query type already set");
+        }
+
+        $this->queryType = $type;
+
+        $this->queryTypeSet = true;
+    }
+
+    protected function clearData() {
+        
+    }
+
+}
+?>

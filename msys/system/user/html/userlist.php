@@ -1,0 +1,12 @@
+
+<?php if (isset($userlist)):?>
+  <ul>  
+  <?php foreach($userlist as $user): ?>
+    <li>
+      <a href="/user/<?=$user->uId;?>"><?=$user->username;?></a>
+      <a href="mailto:<?=$user->email;?>">Email</a>
+
+      </li>
+<?php endforeach; ?>
+  </ul>
+<?php endif; ?>
