@@ -1,0 +1,152 @@
+<?php
+require './framework/helpers/html.php';
+require './framework/module.php';
+class Admin implements module {
+  
+  protected $page;
+  /**
+   * 
+   * @var Url
+   */
+  protected $url;
+  /**
+   * @var Modules
+   */
+  protected $modules;
+  /**
+   * 
+   * @var Db
+   */
+  protected $db;
+  public function __construct($url,$modules) {
+    $this->url = $url;
+    $this->modules = $modules;
+
+    if ($url->count() < 2) {
+      $this->adminMenu();
+      }
+    else {
+        $page = $url->getItem(1); //obtain admin page
+        $this->loadPage($page);
+      }
+      
+  }
+  
+  public function loadPage($name) {
+    
+    switch($name) {
+      
+      case "modules":
+         // list modules installed, manage instances throughout the system.
+          $this->moduleList();
+        break;
+      case "site":
+          $this->pages();
+        break;
+      default:
+          $this->adminMenu();
+          break;
+      
+      
+    }
+      
+  }
+  
+  protected function moduleList() {
+    
+    require './config/sysModules.php'; // system modules have a set instance.
+    
+    //
+    
+    $moduleList = $this->modules->listModules();
+    
+    require 'html/moduleList.php';
+    
+    
+  }
+  
+  protected function adminMenu() {
+    //$menu[]['name'] = "Site Layout Configuration";
+    //$menu[]['link'] = $this->url->makeURL("/admin/site");
+    $menu[] = array('name'=>"Site Layout Configuration",'href'=> $this->url->makeURL("/admin/site"));
+    $menu[] = array('name'=>"Avaliable modules",'href'=> $this->url->makeURL("/admin/modules"));
+    require 'html/adminMenu.php';
+    
+  }
+  
+  protected function moduleInstance($title){}
+  
+  protected function pages() {
+  
+    
+    if (!empty($_POST)) {
+      
+      $item = $this->url->getItem(2);
+      switch ($item) {
+        
+        case "add":
+          
+            $this->modules->addInstance($_POST['module'],$_POST['title'],$_POST['url']);
+
+            
+          break;
+        
+        case "change":
+            switch ($_POST['action']) {
+              case "update":
+                $this->modules->editInstance($_POST['m2Id'],$_POST['module'],$_POST['title'],$_POST['url']);
+                break;
+              case "remove":
+                 $this->modules->removeInstance($_POST['m2Id']);
+                break;
+              default:
+                  echo "fail, unknown operation";
+                  break;
+              
+            }
+          break;
+          
+        default:
+          echo "fail, unknown operation.";
+
+          break;
+        
+        
+      }
+      
+    }
+    
+    $pages = $this->modules->instancesList();
+    
+    $moduleList = $this->modules->listModules();
+    
+    require 'html/siteList.php';
+    
+  }
+  
+   public static function externalJoin($data) {
+  /** currently the forum has no such capability**/ 
+  }
+  
+  public static function externalOutput($data) {
+    
+    
+  }
+  
+  public static function views() {
+    
+    
+  }
+  
+  public static function loadView($name) {
+    
+  }
+ 
+  
+}
+
+$page = new Admin($url,$moduleResolve);
+
+
+
+?>

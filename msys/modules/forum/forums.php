@@ -1,0 +1,123 @@
+<?php
+
+require_once '././framework/moduleData.php';
+
+class forums {
+  /**
+   * @var Db
+   */
+  protected $Db;
+  /**
+   * 
+   * @var int
+   */
+  protected $m2Id;
+  /**
+   * 
+   * 
+   * @var moduleData
+   */
+  protected $mData;
+  /**
+   * @var string
+   */
+  protected $fTable;
+  /**
+   * @var string
+   */
+  protected $tTable;
+  /**
+   * @var string
+   */
+  protected $pTable;
+
+  public function __construct($m2Id,$conf) {
+
+    $this->Db = Db::i();
+
+    $this->m2Id = $m2Id;
+    
+    $this->mData = new moduleData();
+    
+    $this->fTable = $conf['forums_table'];
+    
+    $this->tTable = $conf['threads_table'];
+    
+    $this->pTable = $conf['posts_table'];
+    
+
+  }
+  
+  public function childForums($id) {
+    $tbNm = $this->fTable;
+    if ( $id !=0 ) {
+           
+      $sql = "SELECT {$tbNm}_Id as id,{$tbNm}_name as name,{$tbNm}_description as description FROM {$tbNm} WHERE {$tbNm}_link = ?";
+
+      return $this->Db->fetchAll($sql,array($id),PDO::FETCH_OBJ);
+
+    }
+    else {
+            
+      $sql = "SELECT {$tbNm}_Id as id,{$tbNm}_name as name,{$tbNm}_description as description FROM {$tbNm} WHERE {$tbNm}_link = ?";
+      
+      return $this->Db->fetchAll($sql,array(0),PDO::FETCH_OBJ);      
+      
+    }
+    
+  }
+  
+  public function threads($id) {
+    $tbNm = $this->tTable;
+
+    if ($id !=0) {
+
+      $sql = "SELECT {$tbNm}_Id as id,{$tbNm}_title as title,{$tbNm}_body as body FROM {$tbNm} WHERE {$this->fTable}_Id = ?";
+      
+      return $this->Db->fetchAll($sql,array($id),PDO::FETCH_OBJ);
+    }
+    else {
+      
+      return false;
+      
+    }
+    
+  }
+  
+  public function thread($id) {
+    
+      $tbNm = $this->tTable;
+
+      $sql = "SELECT {$tbNm}_Id as id,{$tbNm}_title as title,{$tbNm}_body as body FROM {$tbNm} WHERE {$tbNm}_Id = ?";
+      
+      return $this->Db->fetchOne($sql,array($id),PDO::FETCH_OBJ);
+
+    
+  }
+  
+  public function posts($id) {
+    
+     $tbNm = $this->pTable;
+   
+    if ($id != 0) {
+      
+       $sql = "SELECT {$tbNm}_Id as id,{$tbNm}_title as title,{$tbNm}_body as body FROM {$tbNm} WHERE {$this->tTable}_Id = ?";
+       
+       return $this->Db->fetchAll($sql,array($id),PDO::FETCH_OBJ);
+       
+
+      
+    }
+    else {
+      
+      return false;
+      
+    }
+    
+  }
+  
+  
+  
+}
+
+?>

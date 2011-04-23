@@ -1,0 +1,51 @@
+<?php
+session_start();
+
+require_once 'framework/db.php';
+
+require_once 'framework/url.php';
+
+require_once 'framework/modules.php';
+
+require_once './config/sysModules.php';
+
+$instance = Db::i();
+
+$url = new Url;
+
+if ($url->count() == 0) {
+  
+  $page = "admin";
+  
+}
+else {
+  
+  $page = $url->getItem(0);
+  
+}
+
+$moduleResolve = new Modules($modules);
+
+$moduleData = $moduleResolve->resolveInstance("/". $page . "/");
+
+$data = $instance->fetchOne("SELECT * FROM users",null);
+
+require_once 'framework/users.php';
+
+$users = new users("UBER SESSION");
+  
+if (file_exists($moduleData->dir)) {
+  
+  $moduleConf = $moduleResolve->instanceConfig($moduleData->m2Id);
+ 
+  require $moduleData->dir;
+  
+  $class = new $moduleData->name;
+  
+}
+else {
+  
+  echo "FAIL";
+  
+}
+?>

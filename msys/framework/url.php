@@ -1,0 +1,314 @@
+<?php
+/**
+* Url Class
+*
+* The URl class is used for working with uri segments and url construction.
+*
+* @package Url
+*/
+class Url {
+
+  /**
+  * An array to hold the uri segments
+  * @var array
+  */
+  protected $uriArray;
+
+  /**
+  * Holds the number of uri segments for reference.
+  * @var int
+  */
+  protected $uriCount;
+
+  /**
+  * A boolean value to determin if mod rewrite is avaiable
+  *
+  * @var bool
+  */
+  protected $mod_rewrite_avaiable;
+  /**
+  * Constructor 
+  *
+  * Obtains the current URI data.
+  */
+  public function __construct() {
+
+    $this->mod_rewrite_avaiable = $this->detect_mod_rewrite();
+    
+    if ($this->mod_rewrite_avaiable) {
+      
+      $this->uriArray = $this->parse_mod_rewrite();
+      
+    }
+    else {
+      
+       $this->uriArray = $this->parse_no_rewrite();    
+       
+    }
+
+      
+    $this->uriCount = count($this->uriArray);
+
+    }
+  /**
+  * This returns the current path as an array
+  * 
+  * @return array
+  */
+
+  public function getPath() {
+
+    return $this->uriArray;
+
+    }
+
+  /**
+  * Gets the list of arguments to parse to a controller.
+  * @return array
+  */
+  public function getArgs() {
+
+    $items = $this->uriArray;
+
+    if (count($items) > 2) {
+
+      array_shift($items);
+
+      array_shift($items);
+
+      return $items;
+
+      }
+
+    else {
+
+      return array(); // return an empty array
+
+      }
+
+  }
+
+  /**
+  * Gets the controller class
+  * @return string
+  */
+  public function getControllerClass() {
+
+    if (is_array($this->uriArray)) {
+
+      return $this->uriArray[0];
+
+      }
+
+    return "";
+
+    }
+
+  /**
+  * Gets the controller method
+  * @return string
+  */
+  public function getControllerMethod() {
+
+    if (is_array($this->uriArray)) {
+
+      return $this->uriArray[1];
+
+      }
+    return "";
+
+    }
+
+  /**
+  * Attempts to detect the existance of mod_rewite apache modules
+  * This is to allow the user of directory based navigation.
+  *
+  * @return bool
+  */
+  private function detect_mod_rewrite() {
+
+    if (function_exists('apache_get_modules')) {
+      
+      $modules = apache_get_modules();
+
+      $mod_rewrite = in_array('mod_rewrite', $modules);
+
+      }
+
+    else {
+
+      $mod_rewrite =  getenv('HTTP_MOD_REWRITE')=='On' ? true : false ;
+
+      }
+
+    //return $mod_rewrite;
+    return $mod_rewrite;
+
+    }
+
+  /**
+  * Parses the uri if mod_rewrite is in use, and returns useable array.
+  *
+  * @return array
+  */
+  protected function parse_mod_rewrite() {
+
+    $items = explode("/",$_SERVER['REQUEST_URI']);
+
+    $values = array();
+
+    foreach($items as $item) {
+
+      if (!empty($item)) {
+
+	$values[] = $item;
+
+	}
+
+      }
+
+      return $values;
+
+    }
+  /**
+  * Parses the URI given the fact mod rewrite is
+  * not avaiable on the system. This will parse
+  * urls like the following http://www.example.com/index.php/category/page
+  * 
+  * @return array
+  */
+
+  protected function parse_no_rewrite() {
+
+    $filter = function($var) {
+      
+      if (empty($var)) return false; 
+
+      if ($var === "index.php") return false;
+
+      return true;
+
+      };
+
+    $items = explode( "/" , $_SERVER['REQUEST_URI'] );
+    
+    return array_values( array_filter( $items , $filter ) );
+  
+    }
+
+  /**
+  * takes an array of strings and returns an uri like 
+  *
+  * @param array An array of elements
+  * @return string
+  */
+  protected function make_mod_rewrite($data) {
+
+    return "/" . $this->uriSlasher($data);
+
+    }
+
+  /**
+  * Sets up a uri formatted for a site that 
+  * does not have mod rewrite avaiable
+  *
+  * @param string|array $data
+  * @return string
+  */
+
+  protected function make_no_rewrite($data) {
+    
+    return "index.php/" .  $this->uriSlasher($data);
+
+    }
+  
+  /**
+  * Ensures the slashes are between each uri segment, and only between.
+  *
+  * @param string|array $data is an array or a formatted string.
+  * @return string
+  */
+
+  protected function uriSlasher($data) {
+
+    $filter = function($var) {
+      
+      if (empty($var)) return false; 
+
+      else return true;
+
+      };
+
+    if (is_array($data)) {
+
+      return implode("/",$data);
+
+      }
+
+    else {
+
+      // this assumes the text is a format of somthing/somthing, /somthing/somthing etc
+
+      $data = explode("/",$data);
+
+      $data = array_values ( array_filter ( $data , $filter ) );
+
+      return implode("/",$data); 
+      
+      }
+
+    }
+
+  /**
+  * Function to return 
+  *
+  * @param array|string An array of URI elements
+  * @return string
+  */
+  public function makeURL($data) {
+    
+    if (  $this->mod_rewrite_avaiable ) {
+
+      return $this->make_mod_rewrite($data);
+      
+      }
+
+    else {
+
+      return $this->make_no_rewrite($data);
+
+      }
+
+    }
+ 
+  /**
+  * Returns the number of uri segments detected
+  * @return int
+  */
+  public function count() {
+
+    return $this->uriCount;
+
+    }
+  /**
+   * Returns the URL segments as a string
+   * @return string
+   */  
+  public function getUrl() {
+     return $this->makeURL($this->uriArray);
+    }
+  /**
+   * Returns a single URI segment.
+   * @param int $i
+   * @return string Returns false on error.
+   */
+  public function getItem($i) {
+     if ($i >= $this->uriCount) {
+       return false; 
+     }
+     else {
+      return $this->uriArray[$i];       
+     }
+  }
+
+  }
